@@ -1,0 +1,134 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title></title>
+    <link href="Content/bootstrap.css" rel="stylesheet"/>
+    <script src="Scripts/jquery-1.9.1.js"></script>
+    <script src="Scripts/bootstrap.js"></script>
+    <script src="Scripts/jquery.signalR-2.2.0.js"></script>
+</head>
+<style type="text/css">
+    .resultLog {
+        overflow-y: scroll;
+        height: 200px;
+    }
+</style>
+<body>
+<div class="row">
+    <div class="col-md-12 text-center">
+        <label class="col-md-12" id="globalMessage"></label>
+        <div class="col-md-12">
+            <button id="launchButton" class="btn btn-success btn-lg">Launch</button>
+        </div>
+        <div class="col-xs-12 col-md-6 col-md-offset-3 ">
+            <span id="progressBarText">0%</span>
+            <div class="progress">
+                <div id="progressBar" class="progress-bar progress-bar-success progress-bar-striped active" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-12" >
+        <div class="col-xs-12 resultLog" id="resultLog"></div>
+        <div class="col-md-12" id="resultReport">
+            <div class="col-xs-12 col-md-6">
+                <table class="table" id="topPerformingTable">
+                    <thead>
+                        <tr>
+                            <th colspan="3">Top performing dealerships</th>
+                        </tr>
+                        <tr>
+                            <th>Identifier</th>
+                            <th>Total Sales</th>
+                            <th>Available Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="col-xs-12 col-md-6">
+                <table class="table" id="lowStockTable">
+                    <thead>
+                        <tr>
+                            <th colspan="3">Low stock dealerships</th>
+                        </tr>
+                        <tr>
+                            <th>Identifier</th>
+                            <th>Total Sales</th>
+                            <th>Available Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+    <script type="text/javascript">
+        $(function () {
+            //hub connection
+            var connection = $.hubConnection();
+            var hub = connection.createHubProxy("motorsProcess");
+            hub.on("onAddDealershipMessage", function (data) {
+                addLogLine(data);
+                updateProgressBar(data.Position);
+            });
+            hub.on("onInitialize", function (message) {
+                addGlobalMessage(message);
+            });
+            hub.on("onAddReport", function (data) {
+                addReport(data);
+            });
+             
+            connection.start().done(function() {
+                hub.invoke("initialize");
+            });
+
+            $("#launchButton").click(function () {
+                hub.invoke("startProcess");
+                $("#launchButton").addClass("disabled");
+            });
+        });
+
+        function addReport(data) {
+            if (data != null) {
+                updateProgressBar(100);
+                var selector = "#" + data.Id + " tr:last"; 
+                for (var i = 0; i < data.Datas.length; i++) {
+                    var currentData = data.Datas[i]; 
+                    var identifier = "<td>" + currentData.DealershipIdentifier + "</td>";
+                    var sales = "<td>" + currentData.TotalSales + "</td>";
+                    var stock = "<td>" + currentData.AvailableStock + "</td>";
+                    $(selector).after("<tr>" + identifier + sales + stock + "</tr>");
+                }
+            }
+        }
+
+        function updateProgressBar(position) {
+            var $progressBar = $("#progressBar");
+            if ($progressBar.attr("aria-valuenow") < position) {
+                $progressBar.css("width", position + "%");
+                $progressBar.attr("aria-valuenow", position);
+                $("#progressBarText").text(position + "%"); 
+            }
+        }
+
+        function addGlobalMessage(message) {
+            $("#globalMessage").text(message);
+        }
+
+        function addLogLine(data) {
+            var $newLogLine = $("<span class=\"col-xs-12 col-md-6\"><span>");
+            if (data.IsError) {
+                $newLogLine.addClass("alert-danger");
+            } else {
+                $newLogLine.addClass("alert-success");
+            }
+            $newLogLine.text(data.Message);
+            var $resultLog = $("#resultLog");
+            $resultLog.append($newLogLine);
+            $resultLog.scrollTop($resultLog.prop("scrollHeight"));
+        }
+    </script>
+</body>
+</html>
